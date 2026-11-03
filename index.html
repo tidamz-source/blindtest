@@ -105,6 +105,8 @@ h2{font-size:24px;font-weight:800}
 .who{font-size:clamp(56px,8vw,130px);font-weight:800;color:var(--yellow);letter-spacing:-.04em;line-height:1}
 .said{font-size:clamp(26px,3vw,44px);background:var(--bg2);border:2px solid var(--line);padding:14px 26px;border-radius:20px;max-width:90%;min-height:1.6em}
 .cd{font-size:28px;color:var(--mute);font-weight:800}
+.stake{font-size:clamp(28px,3.4vw,48px);font-weight:800;color:var(--yellow);font-variant-numeric:tabular-nums}
+.stake small{font-size:.5em;color:var(--mute);margin-left:8px}
 .verd{display:flex;gap:12px}
 .verd span{padding:10px 18px;border-radius:14px;font-weight:800;font-size:22px;background:var(--panel)}
 .verd .y{background:var(--green);color:#0c2a1e}
@@ -206,6 +208,11 @@ const lsGet = k => { try { return localStorage.getItem(k); } catch { return null
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const VSEP = /\s+\/\s+/;
 const firstVariant = s => String(s || '').split(VSEP)[0].trim();
+/* Barème dégressif : max au début de l'extrait, max × minPct à la fin (temps d'écoute, pauses exclues) */
+function ptsAt(t) {
+  const s = H.s, k = Math.min(1, Math.max(0, t / s.extract));
+  return Math.round((s.ptsMax - s.ptsMax * (1 - s.ptsMinPct) * k) / 10) * 10;
+}
 
 /* ================= Correspondance floue des réponses ================= */
 const STOP = new Set(['the','le','la','les','l','a','an','et','and','de','du','des','d','of','un','une']);
@@ -288,8 +295,8 @@ function flash(kind, icon, text, ms = 1500) {
 const H = {
   phase: 'setup', tracks: [], players: new Map(), peer: null, code: '', joinUrl: '', qr: '',
   idx: -1, found: {}, foundBy: {}, locked: new Set(), buzzer: null, transcript: '', suggestion: null,
-  deadline: 0, startAt: 0, loaded: false, previewIdx: -1,
-  s: { extract: 30, startMode: 'random', ptsArtist: 1, ptsTitle: 1, penalty: 0, answerTime: 12, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
+  deadline: 0, startAt: 0, buzzT: 0, loaded: false, previewIdx: -1,
+  s: { extract: 30, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
 };
 const audio = new Audio();
 audio.preload = 'auto';
@@ -510,9 +517,10 @@ function renderSetup() {
       <div class="grid">
         <label>Durée d’un extrait<select data-s="extract">${opt('extract', [[15,'15 s'],[20,'20 s'],[30,'30 s'],[45,'45 s'],[60,'60 s']])}</select></label>
         <label>Départ de l’extrait<select data-s="startMode">${opt('startMode', [['random','Aléatoire dans le morceau'],['zero','Début du morceau']])}</select></label>
-        <label>Points artiste<select data-s="ptsArtist">${opt('ptsArtist', [[0,'0'],[1,'1'],[2,'2'],[3,'3']])}</select></label>
-        <label>Points titre<select data-s="ptsTitle">${opt('ptsTitle', [[0,'0'],[1,'1'],[2,'2'],[3,'3']])}</select></label>
-        <label>Pénalité si faux<select data-s="penalty">${opt('penalty', [[0,'Aucune'],[1,'−1 point'],[2,'−2 points']])}</select></label>
+        <label>Points max (buzz immédiat)<select data-s="ptsMax">${opt('ptsMax', [[500,'500'],[1000,'1000'],[2000,'2000']])}</select></label>
+        <label>Points en fin d’extrait<select data-s="ptsMinPct">${opt('ptsMinPct', [[0.1,'10 % du max'],[0.3,'30 % du max'],[0.5,'50 % du max']])}</select></label>
+        <label>Bonus artiste + titre d’un coup<select data-s="combo">${opt('combo', [[0,'Aucun'],[100,'+100'],[200,'+200'],[500,'+500']])}</select></label>
+        <label>Pénalité si faux<select data-s="penalty">${opt('penalty', [[0,'Aucune'],[100,'−100'],[250,'−250'],[500,'−500']])}</select></label>
         <label>Temps pour répondre<select data-s="answerTime">${opt('answerTime', [[8,'8 s'],[12,'12 s'],[20,'20 s']])}</select></label>
         <label>Validation<select data-s="judge">${opt('judge', [['auto','Automatique'],['manual','Manuelle (animateur)']])}</select></label>
         <label>Tolérance orthographe<select data-s="tol">${opt('tol', [[0.85,'Stricte'],[0.75,'Normale'],[0.62,'Souple']])}</select></label>
@@ -674,6 +682,7 @@ function loadTrack(i) {
 function onBuzz(pid) {
   if (H.phase !== 'playing' || !H.loaded || H.locked.has(pid) || !H.players.has(pid)) return sendTo(pid, { t: 'buzzAck', ok: false });
   H.buzzer = pid; H.phase = 'answering'; H.transcript = ''; H.suggestion = null;
+  H.buzzT = Math.max(0, E.time() - H.startAt);
   E.pause();
   H.deadline = performance.now() + H.s.answerTime * 1000;
   sfx('buzz');
@@ -701,19 +710,22 @@ function applyVerdict(res) {
   if (H.phase !== 'answering') return;
   const pid = H.buzzer, p = H.players.get(pid);
   H.suggestion = null; H.buzzer = null;
-  const gained = [];
-  if (res.artist && !H.found.artist) { H.found.artist = true; H.foundBy.artist = p ? p.name : '?'; if (p) p.score += H.s.ptsArtist; gained.push('artiste'); }
-  if (res.title && !H.found.title) { H.found.title = true; H.foundBy.title = p ? p.name : '?'; if (p) p.score += H.s.ptsTitle; gained.push('titre'); }
+  const gained = [], unit = ptsAt(H.buzzT);
+  if (res.artist && !H.found.artist) { H.found.artist = true; H.foundBy.artist = p ? p.name : '?'; gained.push('artiste'); }
+  if (res.title && !H.found.title) { H.found.title = true; H.foundBy.title = p ? p.name : '?'; gained.push('titre'); }
   if (!gained.length) {
-    if (p) p.score -= H.s.penalty;
+    const lost = p ? Math.min(p.score, H.s.penalty) : 0;
+    if (p) p.score -= lost;
     H.locked.add(pid);
     sfx('wrong');
-    flash('bad', '✗', (p ? p.name : '') + (H.transcript ? ' — raté !' : ' — temps écoulé'));
-    sendTo(pid, { t: 'verdict', ok: false });
+    flash('bad', '✗', (p ? p.name : '') + (H.transcript ? ' — raté !' : ' — temps écoulé') + (lost ? ' −' + lost : ''));
+    sendTo(pid, { t: 'verdict', ok: false, pts: -lost });
   } else {
+    const won = unit * gained.length + (gained.length === 2 ? H.s.combo : 0);
+    if (p) p.score += won;
     sfx('good');
-    flash('good', '✓', (p ? p.name : '') + ' trouve ' + (gained.length === 2 ? 'tout !' : 'le ' + gained[0] + ' !'));
-    sendTo(pid, { t: 'verdict', ok: true, gained });
+    flash('good', '✓', (p ? p.name : '') + ' trouve ' + (gained.length === 2 ? 'tout' : 'le ' + gained[0]) + ' · +' + won);
+    sendTo(pid, { t: 'verdict', ok: true, gained, pts: won });
   }
   if (H.found.artist && H.found.title) return revealTrack();
   const active = [...H.players.values()].filter(x => x.online);
@@ -740,6 +752,7 @@ function tick() {
   if (H.phase === 'playing' && H.loaded) {
     const el = E.time() - H.startAt;
     const pg = $('#prog'); if (pg) pg.style.width = Math.min(100, Math.max(0, el / H.s.extract * 100)) + '%';
+    const sk = $('#stake'); if (sk) sk.firstChild.nodeValue = ptsAt(Math.max(0, el));
     if (el >= H.s.extract && !E.paused()) revealTrack();
   }
   if (H.phase === 'answering') {
@@ -769,7 +782,7 @@ function renderLobby() {
     <div class="lobby-right card">
       <h2>Joueurs<small>${list.filter(p => p.online).length} connecté(s)</small></h2>
       <div class="chips">${list.length ? list.map(p => `<div class="chip ${p.online ? '' : 'off'}">${esc(p.name)}</div>`).join('') : '<p class="mute">En attente des joueurs…</p>'}</div>
-      <p class="mute">${H.tracks.length} extraits · ${H.s.extract} s chacun · validation ${H.s.judge === 'auto' ? 'automatique' : 'manuelle'}</p>
+      <p class="mute">${H.tracks.length} extraits · ${H.s.extract} s chacun · ${H.s.ptsMax} → ${Math.round(H.s.ptsMax * H.s.ptsMinPct)} pts · validation ${H.s.judge === 'auto' ? 'automatique' : 'manuelle'}</p>
       <div class="row"><button id="back">← Playlist</button><button class="btn-main big" id="start" ${list.length ? '' : 'disabled'}>Lancer la partie ▶</button></div>
     </div>
   </div>`;
@@ -785,6 +798,7 @@ function renderGame() {
     const lk = [...H.locked].map(id => H.players.get(id)).filter(Boolean).map(p => esc(p.name));
     hero = `<div class="eq ${E.paused() ? 'paused' : ''}">${'<i></i>'.repeat(11)}</div>
       <div class="hero-big">Buzzez !</div>
+      <div class="stake" id="stake">${ptsAt(Math.max(0, E.time() - H.startAt))}<small>pts en jeu</small></div>
       ${lk.length ? `<div class="locked-list">Hors jeu pour cet extrait : ${lk.join(', ')}</div>` : ''}`;
   } else if (H.phase === 'answering') {
     const sg = H.suggestion;
@@ -794,7 +808,7 @@ function renderGame() {
           ${!H.found.artist ? `<span class="${sg.artist ? 'y' : 'n'}">Artiste ${sg.artist ? '✓' : '✗'}</span>` : ''}
           ${!H.found.title ? `<span class="${sg.title ? 'y' : 'n'}">Titre ${sg.title ? '✓' : '✗'}</span>` : ''}
         </div>${H.s.judge === 'manual' ? '<div class="mute">En attente de l’animateur…</div>' : ''}`
-        : `<div class="cd" id="cd"></div>`}`;
+        : `<div class="stake">${ptsAt(H.buzzT)}<small>pts en jeu</small></div><div class="cd" id="cd"></div>`}`;
   } else if (H.phase === 'reveal') {
     const by = [H.foundBy.title && `Titre : ${esc(H.foundBy.title)}`, H.foundBy.artist && `Artiste : ${esc(H.foundBy.artist)}`].filter(Boolean).join(' · ');
     hero = `<div class="reveal"><div class="lab">C’était</div>
@@ -938,7 +952,7 @@ function onData(d) {
   } else if (d.t === 'verdict') {
     P.fx = d;
     try { navigator.vibrate && navigator.vibrate(d.ok ? [60, 40, 60] : 300); } catch {}
-    flash(d.ok ? 'good' : 'bad', d.ok ? '✓' : '✗', d.ok ? 'Bien joué ! +' + d.gained.join(' + ') : 'Raté !', 1600);
+    flash(d.ok ? 'good' : 'bad', d.ok ? '✓' : '✗', d.ok ? 'Bien joué ! +' + (d.pts || 0) + ' pts (' + d.gained.join(' + ') + ')' : 'Raté !' + (d.pts ? ' ' + d.pts + ' pts' : ''), 1600);
   }
 }
 
