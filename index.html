@@ -176,7 +176,10 @@ details[open].card summary::after{content:" ▴"}
 .pmid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
 .pmid h1{font-size:30px;letter-spacing:-.02em;line-height:1.1}
 .pmid p{color:var(--mute);font-size:17px;max-width:320px}
-.buzz{width:min(74vw,46svh);height:min(74vw,46svh);border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7b93,var(--red) 55%);box-shadow:0 16px 0 var(--red-d),0 24px 50px rgba(255,77,109,.35);font-size:clamp(40px,12vw,64px);font-weight:800;letter-spacing:.02em;color:#fff;touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .06s,box-shadow .06s}
+.buzz{width:min(74vw,46svh);height:min(74vw,46svh);border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7b93,var(--red) 55%);box-shadow:0 16px 0 var(--red-d),0 24px 50px rgba(255,77,109,.35);font-size:clamp(40px,12vw,64px);font-weight:800;letter-spacing:.02em;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .06s,box-shadow .06s}
+.buzz.hold,.buzz.hold.down,.buzz.hold:active{background:radial-gradient(circle at 35% 30%,#ffe78a,var(--yellow) 55%);box-shadow:0 4px 0 #b8901c,0 10px 40px rgba(255,210,63,.45)!important;color:#1a1530;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:clamp(44px,13vw,68px)}
+.buzz.hold .hl1{font-size:18px;font-weight:800;color:#1a1530;margin:0;line-height:1.2}
+.buzz.hold .htr{font-size:16px;font-weight:600;max-width:80%;line-height:1.2;min-height:1.2em}
 .buzz:active:not(:disabled),.buzz.down{transform:translateY(12px);box-shadow:0 4px 0 var(--red-d),0 10px 26px rgba(255,77,109,.3)}
 .buzz.grey{background:var(--panel);box-shadow:0 16px 0 #1a1636;font-size:26px;color:var(--mute)}
 .buzz:disabled{opacity:1}
@@ -333,8 +336,8 @@ function flash(kind, icon, text, ms = 1500) {
 const H = {
   phase: 'setup', tracks: [], players: new Map(), peer: null, code: '', joinUrl: '', qr: '',
   idx: -1, found: {}, foundBy: {}, locked: new Set(), buzzer: null, transcript: '', suggestion: null,
-  deadline: 0, startAt: 0, buzzT: 0, loaded: false, pool: [], selPl: null, poolLoading: false, blPls: [], revealUntil: 0, hold: false,
-  s: { count: 25, revealTime: 10, extract: 15, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
+  deadline: 0, speakBy: 0, heard: false, cooldownUntil: 0, startAt: 0, buzzT: 0, loaded: false, pool: [], selPl: null, poolLoading: false, blPls: [], revealUntil: 0, hold: false,
+  s: { count: 25, revealTime: 10, extract: 15, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, speakTime: 2, cooldown: 5, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
 };
 function syncEq() { const eq = $('.eq'); if (eq) eq.classList.toggle('paused', E.paused()); }
 /* Moteur de lecture : Spotify (Web Playback SDK) */
@@ -543,6 +546,8 @@ function renderSetup() {
         <label>Points en fin d’extrait<select data-s="ptsMinPct">${opt('ptsMinPct', [[0.1,'10 % du max'],[0.3,'30 % du max'],[0.5,'50 % du max']])}</select></label>
         <label>Bonus artiste + titre d’un coup<select data-s="combo">${opt('combo', [[0,'Aucun'],[100,'+100'],[200,'+200'],[500,'+500']])}</select></label>
         <label>Pénalité si faux<select data-s="penalty">${opt('penalty', [[0,'Aucune'],[100,'−100'],[250,'−250'],[500,'−500']])}</select></label>
+        <label>Délai pour commencer à parler<select data-s="speakTime">${opt('speakTime', [[2,'2 s'],[3,'3 s'],[4,'4 s']])}</select></label>
+        <label>Buzzers bloqués après bonne réponse<select data-s="cooldown">${opt('cooldown', [[0,'Non'],[3,'3 s'],[5,'5 s'],[8,'8 s']])}</select></label>
         <label>Temps pour répondre<select data-s="answerTime">${opt('answerTime', [[8,'8 s'],[12,'12 s'],[20,'20 s']])}</select></label>
         <label>Validation<select data-s="judge">${opt('judge', [['auto','Automatique'],['manual','Manuelle (animateur)']])}</select></label>
         <label>Tolérance orthographe<select data-s="tol">${opt('tol', [[0.85,'Stricte'],[0.75,'Normale'],[0.62,'Souple']])}</select></label>
@@ -618,6 +623,7 @@ function onConn(conn) {
     if (d.t === 'buzz') onBuzz(pid);
     else if (d.t === 'interim') onInterim(pid, d.text);
     else if (d.t === 'answer') onAnswer(pid, d.texts);
+    else if (d.t === 'nomic' && H.phase === 'answering' && pid === H.buzzer) H.heard = true;
   });
   conn.on('close', () => {
     const p = H.players.get(conn._pid);
@@ -636,7 +642,7 @@ function snapshot(p) {
     trackNo: H.idx + 1, trackCount: H.tracks.length, lang: H.s.lang,
     buzzerName: bz ? bz.name : null, isMe: H.buzzer === p.pid, locked: H.locked.has(p.pid),
     found: { artist: !!H.found.artist, title: !!H.found.title, hasArtist: !!(tr && tr.artist.trim()), hasTitle: !!(tr && tr.title.trim()) },
-    judging: !!H.suggestion,
+    judging: !!H.suggestion, cooldown: Math.max(0, Math.round(H.cooldownUntil - performance.now())),
     reveal: H.phase === 'reveal' && tr ? { artist: tr.artist.split(VSEP).join(', '), title: firstVariant(tr.title), cover: tr.cover || '' } : null,
     podium: H.phase === 'end' ? rk.slice(0, 3).map(x => ({ name: x.name, score: x.score })) : null
   };
@@ -673,17 +679,19 @@ function loadTrack(i) {
   refresh();
 }
 function onBuzz(pid) {
-  if (H.phase !== 'playing' || !H.loaded || H.locked.has(pid) || !H.players.has(pid)) return sendTo(pid, { t: 'buzzAck', ok: false });
+  if (H.phase !== 'playing' || !H.loaded || H.locked.has(pid) || !H.players.has(pid) || performance.now() < H.cooldownUntil) return sendTo(pid, { t: 'buzzAck', ok: false });
   H.buzzer = pid; H.phase = 'answering'; H.transcript = ''; H.suggestion = null;
   H.buzzT = Math.max(0, E.time() - H.startAt);
   E.pause();
   H.deadline = performance.now() + H.s.answerTime * 1000;
+  H.speakBy = performance.now() + H.s.speakTime * 1000; H.heard = false;
   sfx('buzz');
   refresh();
 }
 function onInterim(pid, text) {
   if (H.phase !== 'answering' || pid !== H.buzzer || H.suggestion) return;
   H.transcript = String(text || '').slice(0, 140);
+  if (H.transcript.trim()) H.heard = true;
   const el = $('#said'); if (el) el.innerHTML = H.transcript ? '« ' + esc(H.transcript) + ' »' : '<span class="mute">écoute…</span>';
 }
 function onAnswer(pid, texts) {
@@ -711,7 +719,7 @@ function applyVerdict(res) {
     if (p) p.score -= lost;
     H.locked.add(pid);
     sfx('wrong');
-    flash('bad', '✗', (p ? p.name : '') + (H.transcript ? ' — raté !' : ' — temps écoulé') + (lost ? ' −' + lost : ''));
+    flash('bad', '✗', (p ? p.name : '') + (H.transcript ? ' — raté !' : ' — pas de réponse') + (lost ? ' −' + lost : ''));
     sendTo(pid, { t: 'verdict', ok: false, pts: -lost });
   } else {
     const won = unit * gained.length + (gained.length === 2 ? H.s.combo : 0);
@@ -719,6 +727,7 @@ function applyVerdict(res) {
     sfx('good');
     flash('good', '✓', (p ? p.name : '') + ' trouve ' + (gained.length === 2 ? 'tout' : 'le ' + gained[0]) + ' · +' + won);
     sendTo(pid, { t: 'verdict', ok: true, gained, pts: won });
+    H.cooldownUntil = performance.now() + H.s.cooldown * 1000;
   }
   if (H.found.artist && H.found.title) return revealTrack();
   const active = [...H.players.values()].filter(x => x.online);
@@ -747,12 +756,14 @@ function tick() {
     const el = E.time() - H.startAt;
     const pg = $('#prog'); if (pg) pg.style.width = Math.min(100, Math.max(0, el / H.s.extract * 100)) + '%';
     const sk = $('#stake'); if (sk) sk.firstChild.nodeValue = ptsAt(Math.max(0, el));
+    const cl = $('#cool');
+    if (cl) { const r = H.cooldownUntil - now; const t = r > 0 ? '⏳ Buzzers bloqués encore ' + Math.ceil(r / 1000) + ' s' : ''; if (cl.textContent !== t) cl.textContent = t; }
     if (el >= H.s.extract && !E.paused()) revealTrack();
   }
   if (H.phase === 'answering') {
     const cd = $('#cd');
     if (cd) cd.textContent = Math.ceil(Math.max(0, (H.deadline - now) / 1000)) + ' s';
-    if (!H.suggestion && H.buzzer && now > H.deadline) applyVerdict({ artist: false, title: false });
+    if (!H.suggestion && H.buzzer && (now > H.deadline || (!H.heard && now > H.speakBy))) applyVerdict({ artist: false, title: false });
   }
   if (H.phase === 'reveal') {
     const last = H.idx + 1 >= H.tracks.length;
@@ -802,6 +813,7 @@ function renderGame() {
     hero = `<div class="eq ${E.paused() ? 'paused' : ''}">${'<i></i>'.repeat(11)}</div>
       <div class="hero-big">Buzzez !</div>
       <div class="stake" id="stake">${ptsAt(Math.max(0, E.time() - H.startAt))}<small>pts en jeu</small></div>
+      <div class="cd" id="cool"></div>
       ${lk.length ? `<div class="locked-list">Hors jeu pour cet extrait : ${lk.join(', ')}</div>` : ''}`;
   } else if (H.phase === 'answering') {
     const sg = H.suggestion;
@@ -880,7 +892,7 @@ function renderEnd() {
 /* =====================================================================
    JOUEUR : téléphone
    ===================================================================== */
-const P = { pid: '', name: '', peer: null, conn: null, st: null, rec: null, sent: false, interim: '', pending: false, pendingAt: 0, tries: 0, fx: null, recFailed: false, recErr: '' };
+const P = { pid: '', name: '', peer: null, conn: null, st: null, rec: null, sent: false, interim: '', pending: false, pendingAt: 0, tries: 0, fx: null, recFailed: false, recErr: '', cdEnd: 0, cdTimer: null, holding: false, alts: [] };
 
 function playerInit() {
   P.pid = lsGet('bt_pid') || (Math.random().toString(36).slice(2) + Date.now().toString(36));
@@ -946,15 +958,16 @@ function onData(d) {
   if (!d || typeof d !== 'object') return;
   if (d.t === 'state') {
     P.st = d;
+    P.cdEnd = d.cooldown > 0 ? Date.now() + d.cooldown : 0;
     if (d.phase === 'answering') {
       P.pending = false;
-      if (!d.isMe) stopRec();
+      if (!d.isMe) { P.holding = false; stopRec(); }
     } else if (!P.pending || Date.now() - P.pendingAt > 3000) {
-      P.pending = false; stopRec();
+      P.pending = false; P.holding = false; stopRec();
     }
     renderPlayer();
   } else if (d.t === 'buzzAck' && !d.ok) {
-    P.pending = false; stopRec(); renderPlayer();
+    P.pending = false; P.holding = false; stopRec(); renderPlayer();
   } else if (d.t === 'verdict') {
     P.fx = d;
     try { navigator.vibrate && navigator.vibrate(d.ok ? [60, 40, 60] : 300); } catch {}
@@ -962,31 +975,34 @@ function onData(d) {
   }
 }
 
+/* Maintenir pour parler : le micro n'écoute que tant que le doigt reste sur le bouton */
 function startRec() {
-  P.sent = false; P.interim = ''; P.recFailed = false;
+  P.sent = false; P.interim = ''; P.alts = []; P.recFailed = false; P.recErr = '';
   if (!SR) return;
   stopRec();
   try {
     const rec = new SR();
     rec.lang = (P.st && P.st.lang) || 'fr-FR';
-    rec.interimResults = true; rec.maxAlternatives = 5; rec.continuous = false;
+    rec.interimResults = true; rec.maxAlternatives = 5; rec.continuous = true;
     rec.onresult = e => {
-      if (rec._dead) return;
-      let interim = '', finals = null;
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finals = Array.from(r).map(a => a.transcript);
-        else interim += r[0].transcript;
-      }
-      if (finals) { P.interim = finals[0]; setTrans(finals[0]); sendAnswer(finals); }
-      else { P.interim = interim; setTrans(interim); send({ t: 'interim', text: interim }); }
+      if (rec._dead || P.sent) return;
+      const res = Array.from(e.results);
+      const txt = res.map(r => r[0].transcript).join(' ').replace(/\s+/g, ' ').trim();
+      P.interim = txt;
+      P.alts = res.length === 1 ? Array.from(res[0]).map(a => a.transcript) : [txt];
+      setTrans(txt);
+      send({ t: 'interim', text: txt });
     };
-    rec.onerror = e => { if (e.error !== 'aborted') { P.recFailed = true; P.recErr = e.error; } };
+    rec.onerror = e => {
+      if (e.error === 'aborted') return;
+      P.recFailed = true; P.recErr = e.error;
+      if (e.error !== 'no-speech') { send({ t: 'nomic' }); P.holding = false; }
+    };
     rec.onend = () => {
       if (rec._dead) return;
       if (P.rec === rec) P.rec = null;
-      if (!P.sent && P.interim) sendAnswer([P.interim]);
-      if (P.st && P.st.phase === 'answering' && P.st.isMe) renderPlayer();
+      if (!P.sent && !(P.recFailed && P.recErr !== 'no-speech') && (P.interim || !P.holding)) sendAnswer(P.alts.length ? P.alts : (P.interim ? [P.interim] : []));
+      renderPlayer();
     };
     rec.start();
     P.rec = rec;
@@ -1003,12 +1019,31 @@ function setTrans(t) { const el = $('#ptrans'); if (el) el.textContent = t ? '«
 
 function doBuzz() {
   const s = P.st;
-  if (P.pending || !s || s.phase !== 'playing' || s.locked) return;
-  P.pending = true; P.pendingAt = Date.now();
+  if (P.pending || P.holding || !s || s.phase !== 'playing' || s.locked || Date.now() < P.cdEnd) return;
+  P.pending = true; P.pendingAt = Date.now(); P.holding = true;
   try { navigator.vibrate && navigator.vibrate(50); } catch {}
   startRec();
   send({ t: 'buzz' });
+  if (!SR || P.recFailed) { P.holding = false; send({ t: 'nomic' }); }
   renderPlayer();
+}
+function releaseBuzz() {
+  if (!P.holding) return;
+  P.holding = false;
+  if (P.rec) { try { P.rec.stop(); } catch {} }
+  else if (!P.sent && SR && !P.recFailed) sendAnswer(P.alts.length ? P.alts : (P.interim ? [P.interim] : []));
+  renderPlayer();
+}
+['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(ev => window.addEventListener(ev, () => { if (P.holding) releaseBuzz(); }, true));
+function updateHoldBtn() {
+  const b = $('#buzz'); if (!b) return;
+  const s = P.st, mine = s && s.phase === 'answering' && s.isMe;
+  b.classList.add('hold', 'down');
+  const msg = P.sent ? 'Réponse envoyée ✓ relâche' : mine ? 'Parle… relâche pour valider' : '…';
+  let m = b.querySelector('.hl1');
+  if (!m) { b.innerHTML = '🎙<span class="hl1"></span><span class="htr" id="ptrans"></span>'; m = b.querySelector('.hl1'); }
+  if (m.textContent !== msg) m.textContent = msg;
+  setTrans(P.interim);
 }
 
 function micTest() {
@@ -1027,6 +1062,7 @@ function micTest() {
 
 function renderPlayer() {
   const s = P.st; if (!s) return;
+  if (P.holding && $('#buzz')) { updateHoldBtn(); return; }
   const typedVal = ($('#typed') || {}).value || '';
   const ord = s.rank === 1 ? 'er' : 'e';
   const top = `<div class="ptop"><b>${esc(s.name)}</b><span>${s.score} pt${Math.abs(s.score) > 1 ? 's' : ''} · ${s.rank}${ord}/${s.total}</span></div>`;
@@ -1035,21 +1071,21 @@ function renderPlayer() {
       ${s.found.hasTitle ? `<span class="${s.found.title ? 'ok' : ''}">Titre ${s.found.title ? '✓' : '?'}</span>` : ''}</div>` : '';
   let mid = '';
   if (s.phase === 'lobby') {
-    mid = `<h1>Tu es dans la partie ✅</h1><p>La partie va bientôt commencer sur le grand écran.</p>
+    mid = `<h1>Tu es dans la partie ✅</h1><p>Pour répondre : <b style="color:var(--yellow)">maintiens le buzzer</b>, dis ta réponse, puis relâche.</p>
       ${SR ? `<button class="btn-blue big" id="mt">🎙 Tester mon micro</button><div class="miclog" id="miclog">Teste-le maintenant pour autoriser le micro.</div>` : '<p>Pas de micro sur ce navigateur : tu pourras taper tes réponses.</p>'}`;
   } else if (s.phase === 'playing') {
     mid = `<p>Extrait ${s.trackNo} / ${s.trackCount}</p>${foundChips}
       ${s.locked ? `<button class="buzz grey" disabled>Raté 😬<br><small style="font-size:16px">attends le prochain</small></button>`
+        : Date.now() < P.cdEnd ? `<button class="buzz grey" disabled>⏳ ${Math.ceil((P.cdEnd - Date.now()) / 1000)}<br><small style="font-size:16px">buzzers bloqués</small></button>`
         : `<button class="buzz ${P.pending ? 'down' : ''}" id="buzz">${P.pending ? '…' : 'BUZZ'}</button>`}
-      <p>${s.locked ? '' : 'Buzze dès que tu reconnais le morceau !'}</p>`;
+      <p>${s.locked ? '' : 'Maintiens le bouton, dis ta réponse téléphone contre la bouche, relâche.'}</p>`;
   } else if (s.phase === 'answering' && s.isMe) {
     const live = !!P.rec;
     mid = `<div class="mic ${live ? 'live' : ''}">🎙</div>
       <h1>${s.judging ? 'Vérification…' : 'À toi !'}</h1>
-      <p>${s.judging ? '' : live ? 'Dis l’artiste ou le titre' : (P.sent ? 'Réponse envoyée' : P.recErr && P.recErr !== 'no-speech' ? 'Micro indisponible : tape ta réponse 👇' : 'Micro coupé')}</p>
+      <p>${s.judging ? '' : live ? 'Envoi de ta réponse…' : (P.sent ? 'Réponse envoyée' : P.recErr && P.recErr !== 'no-speech' ? 'Micro indisponible : tape ta réponse 👇' : 'Micro coupé')}</p>
       <div class="ptrans" id="ptrans">${P.interim ? '« ' + esc(P.interim) + ' »' : ''}</div>
       ${!s.judging && !P.sent ? `
-        ${SR && !live && P.recErr !== 'service-not-allowed' && P.recErr !== 'not-allowed' ? '<button class="btn-blue" id="again">🎙 Réessayer le micro</button>' : ''}
         <div class="typed"><input id="typed" placeholder="ou tape ta réponse" value="${esc(typedVal)}"><button class="btn-main" id="sendt">OK</button></div>` : ''}`;
   } else if (s.phase === 'answering') {
     mid = `<p>Extrait ${s.trackNo} / ${s.trackCount}</p>${foundChips}
@@ -1065,11 +1101,16 @@ function renderPlayer() {
     mid = `<h1>En attente…</h1>`;
   }
   app.innerHTML = `<div class="pl">${top}<div class="pmid">${mid}</div></div>`;
+  clearTimeout(P.cdTimer);
+  if (s.phase === 'playing' && P.cdEnd) P.cdTimer = setTimeout(() => { if (Date.now() >= P.cdEnd) P.cdEnd = 0; renderPlayer(); }, 250);
 
   const bz = $('#buzz');
-  if (bz) { bz.addEventListener('pointerdown', e => { e.preventDefault(); doBuzz(); }); bz.addEventListener('contextmenu', e => e.preventDefault()); }
+  if (bz) {
+    bz.addEventListener('pointerdown', e => { e.preventDefault(); try { bz.setPointerCapture(e.pointerId); } catch {} doBuzz(); });
+    bz.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+    bz.addEventListener('contextmenu', e => e.preventDefault());
+  }
   const mt = $('#mt'); if (mt) mt.onclick = micTest;
-  const ag = $('#again'); if (ag) ag.onclick = () => { startRec(); renderPlayer(); };
   const st = $('#sendt');
   if (st) {
     const go = () => { const v = $('#typed').value.trim(); if (v) { stopRec(); P.interim = v; sendAnswer([v]); renderPlayer(); } };
