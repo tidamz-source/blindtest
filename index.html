@@ -158,8 +158,6 @@ details[open].card summary::after{content:" ▴"}
 .pod.p3 .blk{height:120px;background:var(--violet);color:#fff}
 
 /* ---------- PLEIN ÉCRAN ---------- */
-#fs{position:fixed;top:14px;right:14px;z-index:40;padding:10px 14px;font-size:15px;opacity:.45;background:var(--panel)}
-#fs:hover{opacity:1}
 
 /* ---------- FLASH ---------- */
 #flash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;pointer-events:none;opacity:0;transition:opacity .2s;z-index:50;font-weight:800;text-align:center;padding:24px}
@@ -322,7 +320,7 @@ const H = {
   phase: 'setup', tracks: [], players: new Map(), peer: null, code: '', joinUrl: '', qr: '',
   idx: -1, found: {}, foundBy: {}, locked: new Set(), buzzer: null, transcript: '', suggestion: null,
   deadline: 0, startAt: 0, buzzT: 0, loaded: false, pool: [], selPl: null, poolLoading: false, blPls: [], revealUntil: 0, hold: false,
-  s: { count: 25, revealTime: 10, extract: 30, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
+  s: { count: 25, revealTime: 10, extract: 15, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
 };
 function syncEq() { const eq = $('.eq'); if (eq) eq.classList.toggle('paused', E.paused()); }
 /* Moteur de lecture : Spotify (Web Playback SDK) */
@@ -470,12 +468,9 @@ function toggleFs() {
     else { const el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen).call(el); }
   } catch {}
 }
+const fsLabel = () => (document.fullscreenElement || document.webkitFullscreenElement) ? '✕ Quitter le plein écran' : '⛶ Plein écran (F)';
 function setupFs() {
-  const b = document.createElement('button');
-  b.id = 'fs'; b.title = 'Plein écran (touche F)';
-  const upd = () => { b.textContent = (document.fullscreenElement || document.webkitFullscreenElement) ? '✕ Quitter le plein écran' : '⛶ Plein écran (F)'; };
-  b.onclick = toggleFs; upd();
-  document.body.appendChild(b);
+  const upd = () => { const b = $('[data-c="fs"]'); if (b) b.textContent = fsLabel(); };
   document.addEventListener('fullscreenchange', upd);
   document.addEventListener('webkitfullscreenchange', upd);
   document.addEventListener('keydown', e => {
@@ -835,12 +830,13 @@ function renderGame() {
       <div class="mini">${H.qr ? `<div class="qr"><img src="${H.qr}" alt=""></div>` : ''}<div>Rejoindre<br><b>${H.code}</b></div></div>
     </aside>
   </div>
-  <nav class="admin">${ctrl}<span class="sp"></span><button data-c="end">Terminer</button></nav>`;
+  <nav class="admin">${ctrl}<span class="sp"></span><button data-c="fs" title="Plein écran (touche F)">${fsLabel()}</button><button data-c="end">Terminer</button></nav>`;
 
   $('.admin').onclick = e => {
     const c = (e.target.closest('button') || {}).dataset?.c; if (!c) return;
     if (c === 'pause') { if (E.paused()) E.play(); else E.pause(); renderGame(); }
     if (c === 'reveal') revealTrack();
+    if (c === 'fs') toggleFs();
     if (c === 'next') nextTrack();
     if (c === 'hold') { H.hold = !H.hold; if (H.hold) E.pause(); else { E.play(); H.revealUntil = performance.now() + 3000; } renderGame(); }
     if (c === 'okA') applyVerdict({ artist: true, title: false });
