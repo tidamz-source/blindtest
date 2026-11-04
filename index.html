@@ -337,7 +337,7 @@ const H = {
   phase: 'setup', tracks: [], players: new Map(), peer: null, code: '', joinUrl: '', qr: '',
   idx: -1, found: {}, foundBy: {}, locked: new Set(), buzzer: null, transcript: '', suggestion: null,
   deadline: 0, speakBy: 0, heard: false, cooldownUntil: 0, startAt: 0, buzzT: 0, loaded: false, pool: [], selPl: null, poolLoading: false, blPls: [], revealUntil: 0, hold: false,
-  s: { count: 25, revealTime: 10, extract: 15, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, speakTime: 2, cooldown: 5, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
+  s: { count: 25, revealTime: 10, extract: 15, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, speakTime: 5, cooldown: 5, judge: 'auto', tol: 0.62, lang: 'fr-FR' }
 };
 function syncEq() { const eq = $('.eq'); if (eq) eq.classList.toggle('paused', E.paused()); }
 /* Moteur de lecture : Spotify (Web Playback SDK) */
@@ -546,7 +546,7 @@ function renderSetup() {
         <label>Points en fin d’extrait<select data-s="ptsMinPct">${opt('ptsMinPct', [[0.1,'10 % du max'],[0.3,'30 % du max'],[0.5,'50 % du max']])}</select></label>
         <label>Bonus artiste + titre d’un coup<select data-s="combo">${opt('combo', [[0,'Aucun'],[100,'+100'],[200,'+200'],[500,'+500']])}</select></label>
         <label>Pénalité si faux<select data-s="penalty">${opt('penalty', [[0,'Aucune'],[100,'−100'],[250,'−250'],[500,'−500']])}</select></label>
-        <label>Délai pour commencer à parler<select data-s="speakTime">${opt('speakTime', [[2,'2 s'],[3,'3 s'],[4,'4 s']])}</select></label>
+        <label>Délai pour commencer à parler<select data-s="speakTime">${opt('speakTime', [[3,'3 s'],[5,'5 s'],[7,'7 s']])}</select></label>
         <label>Buzzers bloqués après bonne réponse<select data-s="cooldown">${opt('cooldown', [[0,'Non'],[3,'3 s'],[5,'5 s'],[8,'8 s']])}</select></label>
         <label>Temps pour répondre<select data-s="answerTime">${opt('answerTime', [[8,'8 s'],[12,'12 s'],[20,'20 s']])}</select></label>
         <label>Validation<select data-s="judge">${opt('judge', [['auto','Automatique'],['manual','Manuelle (animateur)']])}</select></label>
