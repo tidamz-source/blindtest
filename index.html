@@ -219,6 +219,19 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const VSEP = /\s+\/\s+/;
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function micErrText(code) {
+  if (code === 'service-not-allowed') return IOS
+    ? 'Reconnaissance vocale bloquée par l’iPhone. Active Réglages › Général › Clavier › « Activer la dictée », vérifie Réglages › Temps d’écran › Restrictions › Siri et dictée, puis recharge la page. Sinon, tu pourras taper tes réponses.'
+    : 'Reconnaissance vocale indisponible sur ce navigateur. Essaie Chrome, ou tape tes réponses.';
+  if (code === 'not-allowed') return IOS
+    ? 'Micro refusé. Va dans Réglages › Safari › Microphone (ou touche « aA » dans la barre d’adresse › Réglages du site) et autorise, puis recharge la page.'
+    : 'Micro refusé : autorise-le dans les réglages du navigateur, puis recharge la page.';
+  if (code === 'audio-capture') return 'Aucun micro détecté. Vérifie qu’aucune autre app ne l’utilise.';
+  if (code === 'network') return 'La reconnaissance vocale a besoin d’internet : vérifie ta connexion.';
+  if (code === 'no-speech') return 'Rien entendu, réessaie en parlant plus près.';
+  return 'Erreur micro : ' + code + '. Tu pourras taper tes réponses.';
+}
 const firstVariant = s => String(s || '').split(VSEP)[0].trim();
 /* Barème dégressif : max au début de l'extrait, max × minPct à la fin (temps d'écoute, pauses exclues) */
 function ptsAt(t) {
@@ -867,7 +880,7 @@ function renderEnd() {
 /* =====================================================================
    JOUEUR : téléphone
    ===================================================================== */
-const P = { pid: '', name: '', peer: null, conn: null, st: null, rec: null, sent: false, interim: '', pending: false, pendingAt: 0, tries: 0, fx: null, recFailed: false };
+const P = { pid: '', name: '', peer: null, conn: null, st: null, rec: null, sent: false, interim: '', pending: false, pendingAt: 0, tries: 0, fx: null, recFailed: false, recErr: '' };
 
 function playerInit() {
   P.pid = lsGet('bt_pid') || (Math.random().toString(36).slice(2) + Date.now().toString(36));
@@ -968,7 +981,7 @@ function startRec() {
       if (finals) { P.interim = finals[0]; setTrans(finals[0]); sendAnswer(finals); }
       else { P.interim = interim; setTrans(interim); send({ t: 'interim', text: interim }); }
     };
-    rec.onerror = e => { if (e.error !== 'aborted') P.recFailed = true; };
+    rec.onerror = e => { if (e.error !== 'aborted') { P.recFailed = true; P.recErr = e.error; } };
     rec.onend = () => {
       if (rec._dead) return;
       if (P.rec === rec) P.rec = null;
@@ -1005,8 +1018,9 @@ function micTest() {
     const r = new SR(); r.lang = (P.st && P.st.lang) || 'fr-FR'; r.interimResults = true;
     out.textContent = '🎙 Parle…';
     r.onresult = e => { out.textContent = '« ' + Array.from(e.results).map(x => x[0].transcript).join(' ') + ' »'; };
-    r.onerror = e => { out.textContent = e.error === 'not-allowed' ? 'Micro refusé : autorise-le dans les réglages du navigateur.' : 'Erreur micro : ' + e.error; };
-    r.onend = () => { if (out.textContent === '🎙 Parle…') out.textContent = 'Rien entendu, réessaie.'; else if (!/^Erreur|^Micro/.test(out.textContent)) out.textContent += ' ✓'; };
+    let failed = false;
+    r.onerror = e => { failed = true; P.recErr = e.error; out.textContent = micErrText(e.error); };
+    r.onend = () => { if (failed) return; if (out.textContent === '🎙 Parle…') out.textContent = 'Rien entendu, réessaie.'; else out.textContent += ' ✓'; };
     r.start();
   } catch (e) { out.textContent = 'Impossible de lancer le micro.'; }
 }
@@ -1032,10 +1046,10 @@ function renderPlayer() {
     const live = !!P.rec;
     mid = `<div class="mic ${live ? 'live' : ''}">🎙</div>
       <h1>${s.judging ? 'Vérification…' : 'À toi !'}</h1>
-      <p>${s.judging ? '' : live ? 'Dis l’artiste ou le titre' : (P.sent ? 'Réponse envoyée' : 'Micro coupé')}</p>
+      <p>${s.judging ? '' : live ? 'Dis l’artiste ou le titre' : (P.sent ? 'Réponse envoyée' : P.recErr && P.recErr !== 'no-speech' ? 'Micro indisponible : tape ta réponse 👇' : 'Micro coupé')}</p>
       <div class="ptrans" id="ptrans">${P.interim ? '« ' + esc(P.interim) + ' »' : ''}</div>
       ${!s.judging && !P.sent ? `
-        ${SR && !live ? '<button class="btn-blue" id="again">🎙 Réessayer le micro</button>' : ''}
+        ${SR && !live && P.recErr !== 'service-not-allowed' && P.recErr !== 'not-allowed' ? '<button class="btn-blue" id="again">🎙 Réessayer le micro</button>' : ''}
         <div class="typed"><input id="typed" placeholder="ou tape ta réponse" value="${esc(typedVal)}"><button class="btn-main" id="sendt">OK</button></div>` : ''}`;
   } else if (s.phase === 'answering') {
     mid = `<p>Extrait ${s.trackNo} / ${s.trackCount}</p>${foundChips}
