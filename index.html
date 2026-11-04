@@ -269,6 +269,19 @@ function matchOne(texts, target, thr) {
 function matchAny(texts, field, thr) {
   return String(field || '').split(VSEP).map(s => s.trim()).filter(Boolean).some(v => matchOne(texts, v, thr));
 }
+/* Artiste : accepte aussi le nom de famille seul pour les noms de personne (2-3 mots),
+   avec une tolérance plus stricte (évite Brel/Bruel) et hors mots de groupe génériques */
+const BAND_WORDS = new Set(['punk','stones','monkeys','boys','girls','brothers','sisters','band','club','crew','gang','orchestra','orchestre','family','project','kids','kings','queens','killers','doors','heads','peppers','pistols','beats','sound','system','music','stars','singers','soul','funk','rock','pop','jazz','blues','choir','chorale','groupe','group','team','collective','collectif','experience']);
+function matchArtist(texts, field, thr) {
+  if (matchAny(texts, field, thr)) return true;
+  return String(field || '').split(VSEP).map(s => s.trim()).filter(Boolean).some(v => {
+    const tt = toks(v);
+    if (tt.length < 2 || tt.length > 3) return false;
+    const last = tt[tt.length - 1];
+    if (last.length < 4 || BAND_WORDS.has(last) || /\d/.test(last)) return false;
+    return matchOne(texts, last, Math.max(thr, 0.85));
+  });
+}
 
 /* ================= Sons ================= */
 let actx = null;
@@ -647,7 +660,7 @@ function onAnswer(pid, texts) {
   H.transcript = texts[0] || '';
   const tr = H.tracks[H.idx];
   const res = {
-    artist: !H.found.artist && matchAny(texts, tr.artist, H.s.tol),
+    artist: !H.found.artist && matchArtist(texts, tr.artist, H.s.tol),
     title: !H.found.title && matchAny(texts, tr.title, H.s.tol)
   };
   H.suggestion = res;
