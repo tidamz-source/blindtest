@@ -157,6 +157,10 @@ details[open].card summary::after{content:" ▴"}
 .pod.p2 .blk{height:170px;background:var(--blue)}
 .pod.p3 .blk{height:120px;background:var(--violet);color:#fff}
 
+/* ---------- PLEIN ÉCRAN ---------- */
+#fs{position:fixed;top:14px;right:14px;z-index:40;padding:10px 14px;font-size:15px;opacity:.45;background:var(--panel)}
+#fs:hover{opacity:1}
+
 /* ---------- FLASH ---------- */
 #flash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;pointer-events:none;opacity:0;transition:opacity .2s;z-index:50;font-weight:800;text-align:center;padding:24px}
 #flash.on{opacity:1}
@@ -460,7 +464,26 @@ function spPlay(uri, posMs) {
 }
 function spPause() { if (!SP.player) return; SP.setSt(true, SP.pos()); SP.player.pause().catch(() => {}); }
 function spResume() { if (!SP.player) return; SP.setSt(false, SP.pos()); SP.player.resume().catch(() => {}); }
+function toggleFs() {
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { const el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen).call(el); }
+  } catch {}
+}
+function setupFs() {
+  const b = document.createElement('button');
+  b.id = 'fs'; b.title = 'Plein écran (touche F)';
+  const upd = () => { b.textContent = (document.fullscreenElement || document.webkitFullscreenElement) ? '✕ Quitter le plein écran' : '⛶ Plein écran (F)'; };
+  b.onclick = toggleFs; upd();
+  document.body.appendChild(b);
+  document.addEventListener('fullscreenchange', upd);
+  document.addEventListener('webkitfullscreenchange', upd);
+  document.addEventListener('keydown', e => {
+    if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|SELECT|TEXTAREA)$/.test((e.target.tagName || ''))) { e.preventDefault(); toggleFs(); }
+  });
+}
 async function hostInit() {
+  setupFs();
   await spHandleRedirect();
   if (SP.tok) spInitPlayer();
   renderSetup();
