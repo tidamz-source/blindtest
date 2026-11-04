@@ -119,7 +119,8 @@ details[open].card summary::after{content:" ▴"}
 .reveal{display:flex;align-items:center;gap:48px;text-align:left;max-width:100%}
 .r-txt{display:flex;flex-direction:column;gap:12px;min-width:0}
 .r-cover{width:min(32vw,420px);aspect-ratio:1;object-fit:cover;border-radius:24px;box-shadow:0 22px 60px rgba(0,0,0,.55);animation:pop .5s cubic-bezier(.3,1.6,.5,1);flex:none}
-.nextcd{color:var(--yellow);font-size:clamp(24px,2.4vw,34px);margin-top:12px;font-weight:800;letter-spacing:-.01em}
+.nextcd{color:var(--text);font-size:clamp(24px,2.4vw,34px);margin-top:12px;font-weight:400;letter-spacing:-.01em}
+.nextcd b{color:var(--yellow);font-weight:800}
 .p-cover{width:min(62vw,30svh);aspect-ratio:1;object-fit:cover;border-radius:18px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
 .reveal .lab{font-size:22px;color:var(--mute);text-transform:uppercase;letter-spacing:.2em}
 .r-title{font-size:clamp(40px,5.6vw,92px);font-weight:800;letter-spacing:-.04em;line-height:1;animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
@@ -743,7 +744,10 @@ function tick() {
   if (H.phase === 'reveal') {
     const last = H.idx + 1 >= H.tracks.length;
     const nc = $('#nextcd');
-    if (nc) nc.textContent = H.hold ? 'Enchaînement en pause' : (last ? 'Podium dans ' : 'Morceau suivant dans ') + Math.ceil(Math.max(0, (H.revealUntil - now) / 1000)) + ' s';
+    if (nc) {
+      const txt = H.hold ? 'Enchaînement en pause' : (last ? 'Podium dans ' : 'Morceau suivant dans ') + '<b>' + Math.ceil(Math.max(0, (H.revealUntil - now) / 1000)) + ' s</b>';
+      if (nc.innerHTML !== txt) nc.innerHTML = txt;
+    }
     if (!H.hold && now >= H.revealUntil) nextTrack();
   }
 }
