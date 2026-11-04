@@ -48,19 +48,24 @@ h2{font-size:24px;font-weight:800}
 /* ---------- SETUP ---------- */
 .wrap{max-width:1100px;margin:0 auto;padding:36px 24px 120px;display:flex;flex-direction:column;gap:20px}
 .head p{margin-top:10px;font-size:18px}
-.drop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:34px;border:3px dashed var(--line);border-radius:var(--r);cursor:pointer;text-align:center;transition:.15s;background:repeating-linear-gradient(45deg,transparent 0 14px,rgba(255,255,255,.015) 14px 28px)}
-.drop b{font-size:22px}
-.drop span{color:var(--mute)}
-.drop.over,.drop:hover{border-color:var(--yellow);background-color:rgba(255,210,63,.06)}
 .hint{color:var(--mute);margin:8px 0 14px;font-size:14px}
-.trk{display:grid;grid-template-columns:34px 44px 1fr 1.3fr 44px;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
-.trk .num{color:var(--mute);font-weight:800;text-align:center}
-.trk button{padding:10px 0}
-.trk .fname{grid-column:3/5;font-size:12px;color:var(--mute);margin-top:-4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .empty{color:var(--mute);padding:18px 0;text-align:center}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:16px}
 .grid label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px;color:var(--mute)}
 .footer-cta{position:fixed;left:0;right:0;bottom:0;padding:16px 24px;background:linear-gradient(transparent,var(--bg) 40%);display:flex;justify-content:center}
+
+.conn{margin-bottom:6px}
+.covers{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:18px}
+.cov{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--bg2);border:3px solid var(--line);border-radius:20px;text-align:left;font-weight:600}
+.cov img,.cov .ph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:56px;background:linear-gradient(135deg,var(--violet),var(--red))}
+.cov .cn{font-size:17px;font-weight:800;line-height:1.15}
+.cov .cc{font-size:14px;color:var(--mute)}
+.cov.sel{border-color:var(--yellow);background:var(--panel);transform:translateY(-3px)}
+.cov.sel .cc{color:var(--yellow);font-weight:800}
+details.card summary{cursor:pointer;font-size:20px;font-weight:800;list-style:none}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary::after{content:" ▾";color:var(--mute)}
+details[open].card summary::after{content:" ▴"}
 
 /* ---------- LOBBY ---------- */
 .lobby{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;gap:40px;padding:48px;align-items:center}
@@ -111,8 +116,13 @@ h2{font-size:24px;font-weight:800}
 .verd span{padding:10px 18px;border-radius:14px;font-weight:800;font-size:22px;background:var(--panel)}
 .verd .y{background:var(--green);color:#0c2a1e}
 .verd .n{background:var(--red)}
+.reveal{display:flex;align-items:center;gap:48px;text-align:left;max-width:100%}
+.r-txt{display:flex;flex-direction:column;gap:12px;min-width:0}
+.r-cover{width:min(32vw,420px);aspect-ratio:1;object-fit:cover;border-radius:24px;box-shadow:0 22px 60px rgba(0,0,0,.55);animation:pop .5s cubic-bezier(.3,1.6,.5,1);flex:none}
+.nextcd{color:var(--mute);font-size:18px;margin-top:8px;font-weight:600}
+.p-cover{width:min(62vw,30svh);aspect-ratio:1;object-fit:cover;border-radius:18px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
 .reveal .lab{font-size:22px;color:var(--mute);text-transform:uppercase;letter-spacing:.2em}
-.r-title{font-size:clamp(48px,7vw,104px);font-weight:800;letter-spacing:-.04em;line-height:1;animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+.r-title{font-size:clamp(40px,5.6vw,92px);font-weight:800;letter-spacing:-.04em;line-height:1;animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
 .r-artist{font-size:clamp(28px,3.5vw,52px);color:var(--yellow);font-weight:600;animation:pop .45s .1s cubic-bezier(.3,1.6,.5,1) both}
 .by{color:var(--mute);font-size:20px}
 .bar{height:14px;background:var(--bg2);border-radius:99px;overflow:hidden}
@@ -186,9 +196,8 @@ h2{font-size:24px;font-weight:800}
   .qr img{width:min(70vw,300px)}
   .stage{grid-template-columns:1fr;height:auto;min-height:calc(100vh - 78px)}
   .board{border-left:0;border-top:2px solid var(--line)}
-  .trk{grid-template-columns:28px 40px 1fr 40px}
-  .trk input[data-f=title]{grid-column:3/4}
-  .trk .fname{grid-column:3/4}
+  .reveal{flex-direction:column;text-align:center;gap:24px}
+  .r-cover{width:min(60vw,320px)}
 }
 </style>
 </head>
@@ -295,24 +304,19 @@ function flash(kind, icon, text, ms = 1500) {
 const H = {
   phase: 'setup', tracks: [], players: new Map(), peer: null, code: '', joinUrl: '', qr: '',
   idx: -1, found: {}, foundBy: {}, locked: new Set(), buzzer: null, transcript: '', suggestion: null,
-  deadline: 0, startAt: 0, buzzT: 0, loaded: false, previewIdx: -1,
-  s: { extract: 30, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
+  deadline: 0, startAt: 0, buzzT: 0, loaded: false, pool: [], selPl: null, poolLoading: false, blPls: [], revealUntil: 0, hold: false,
+  s: { count: 25, revealTime: 10, extract: 30, startMode: 'random', ptsMax: 1000, ptsMinPct: 0.3, combo: 200, penalty: 250, answerTime: 12, judge: 'auto', tol: 0.75, lang: 'fr-FR' }
 };
-const audio = new Audio();
-audio.preload = 'auto';
-audio.addEventListener('play', syncEq);
-audio.addEventListener('pause', syncEq);
-audio.addEventListener('ended', () => { if (H.phase === 'playing' && E.cur === 'file') revealTrack(); });
 function syncEq() { const eq = $('.eq'); if (eq) eq.classList.toggle('paused', E.paused()); }
-/* Moteur de lecture commun : MP3 (balise audio) ou Spotify (Web Playback SDK) */
+/* Moteur de lecture : Spotify (Web Playback SDK) */
 const E = {
-  cur: 'file',
-  sp() { return this.cur === 'spotify'; },
-  paused() { return this.sp() ? SP.st.paused : audio.paused; },
-  time() { return this.sp() ? SP.pos() : audio.currentTime; },
-  play() { if (this.sp()) spResume(); else audio.play().catch(() => {}); },
-  pause() { if (this.sp()) spPause(); else audio.pause(); }
+  paused: () => SP.st.paused,
+  time: () => SP.pos(),
+  play: () => spResume(),
+  pause: () => spPause()
 };
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const normName = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 
 /* ================= Spotify ================= */
 const SP_SCOPES = 'streaming user-read-email user-read-private playlist-read-private playlist-read-collaborative user-read-playback-state user-modify-playback-state';
@@ -393,23 +397,27 @@ function cleanTitle(t) {
     .trim();
   return c || String(t || '');
 }
-async function spImport(pl) {
-  SP.importing = true; SP.err = ''; renderSetup();
+async function spLoadPool(pl) {
+  H.selPl = pl; H.pool = []; H.poolLoading = true; SP.err = ''; renderSetup();
   try {
-    let url = `/playlists/${pl.id}/items?limit=50`, n = 0;
+    let url = `/playlists/${pl.id}/items?limit=50`;
+    const pool = [];
     while (url) {
       const j = await spApi(url);
       for (const it of (j && j.items) || []) {
         const t = it && (it.item || it.track);
         if (!t || t.type !== 'track' || t.is_local || !t.uri) continue;
-        H.tracks.push({ src: 'spotify', uri: t.uri, durationMs: t.duration_ms, fname: '🎧 Spotify · ' + pl.name, artist: (t.artists || []).map(a => a.name).join(' / '), title: cleanTitle(t.name) });
-        n++;
+        const imgs = (t.album && t.album.images) || [];
+        pool.push({ uri: t.uri, durationMs: t.duration_ms, artist: (t.artists || []).map(a => a.name).join(' / '), title: cleanTitle(t.name), cover: imgs[0] ? imgs[0].url : '' });
       }
       url = spNext(j);
     }
-    if (!n) SP.err = 'Aucun morceau lisible dans cette playlist.';
-  } catch (e) { SP.err = 'Import impossible : ' + e.message; }
-  SP.importing = false; renderSetup();
+    if (H.selPl !== pl) return;
+    H.pool = pool;
+    if (!pool.length) SP.err = 'Aucun morceau lisible dans cette playlist.';
+  } catch (e) { SP.err = 'Chargement impossible : ' + e.message; }
+  H.poolLoading = false;
+  if (H.phase === 'setup') renderSetup();
 }
 let spSdkPromise = null;
 function spInitPlayer() {
@@ -439,37 +447,6 @@ function spPlay(uri, posMs) {
 }
 function spPause() { if (!SP.player) return; SP.setSt(true, SP.pos()); SP.player.pause().catch(() => {}); }
 function spResume() { if (!SP.player) return; SP.setSt(false, SP.pos()); SP.player.resume().catch(() => {}); }
-function spotifyCard() {
-  const redir = esc(SP.redirect());
-  let body;
-  if (!SP.clientId) {
-    body = `<p class="hint" style="margin-top:0">1. Crée une app sur <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> en cochant <b>Web API</b> et <b>Web Playback SDK</b>.<br>
-      2. Dans ses réglages, ajoute cette Redirect URI à l’identique : <code>${redir}</code><br>3. Colle son Client ID ici :</p>
-      <div class="row nowrap"><input id="spcid" placeholder="Client ID"><button class="btn-main" id="spsave">Enregistrer</button></div>`;
-  } else if (!SP.tok) {
-    body = `<div class="row"><button class="btn-green big" id="splogin">Se connecter à Spotify</button><button id="spreset">Changer de Client ID</button></div>
-      <p class="hint">Redirect URI déclarée dans ton app : <code>${redir}</code></p>`;
-  } else {
-    const pls = SP.playlists;
-    body = `<div class="row between"><span>Connecté${SP.me ? ' : <b>' + esc(SP.me.display_name || SP.me.id) + '</b>' : ''} · lecteur ${SP.deviceId ? '<b style="color:var(--green)">prêt</b>' : '<span class="mute">en préparation…</span>'}</span><button id="splogout">Déconnexion</button></div>
-      ${!pls ? (SP.err ? '' : '<p class="hint">Chargement de tes playlists…</p>')
-        : pls.length ? `<div class="row nowrap" style="margin-top:12px"><select id="sppl">${pls.map((pl, i) => `<option value="${i}">${esc(pl.name)} (${((pl.items || pl.tracks || {}).total) ?? '?'})</option>`).join('')}</select><button class="btn-main" id="spimp" ${SP.importing ? 'disabled' : ''}>${SP.importing ? 'Import…' : 'Importer'}</button></div>
-          <p class="hint">Seules tes playlists (ou collaboratives) sont lisibles. Pour une playlist Spotify officielle, copie-la d’abord dans une playlist à toi.</p>`
-        : '<p class="hint">Aucune playlist à toi trouvée. Crée-en une ou copie une playlist existante dans une playlist à toi.</p>'}`;
-  }
-  return `<section class="card"><h2>🎧 Spotify<small>optionnel · compte Premium</small></h2>
-    ${SP.err ? `<p style="color:var(--red);margin-top:8px">${esc(SP.err)}</p>` : ''}<div style="margin-top:12px">${body}</div></section>`;
-}
-function bindSpotify() {
-  const q = id => $('#' + id);
-  if (q('spsave')) q('spsave').onclick = () => { const v = q('spcid').value.trim(); if (!v) return; SP.clientId = v; lsSet('sp_client', v); SP.err = ''; renderSetup(); };
-  if (q('splogin')) q('splogin').onclick = () => { if (H.tracks.length && !confirm('La connexion recharge la page : la playlist actuelle sera vidée. Continuer ?')) return; spLogin(); };
-  if (q('spreset')) q('spreset').onclick = () => { SP.clientId = ''; lsSet('sp_client', ''); SP.err = ''; renderSetup(); };
-  if (q('splogout')) q('splogout').onclick = () => { spLogout(); SP.err = ''; renderSetup(); };
-  if (q('spimp')) q('spimp').onclick = () => spImport(SP.playlists[+q('sppl').value]);
-  if (SP.tok && !SP.playlists && !SP.plLoading && !SP.err) spLoadPlaylists();
-}
-
 async function hostInit() {
   await spHandleRedirect();
   if (SP.tok) spInitPlayer();
@@ -478,44 +455,44 @@ async function hostInit() {
   window.addEventListener('beforeunload', e => { if (H.phase !== 'setup' && H.players.size) { e.preventDefault(); e.returnValue = ''; } });
 }
 
-function parseName(fname) {
-  let n = fname.replace(/\.[^.]+$/, '').replace(/_/g, ' ').replace(/^\s*\d{1,3}\s*[-.)]\s*/, '').trim();
-  const parts = n.split(/\s+-\s+/);
-  return parts.length >= 2 ? { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() } : { artist: '', title: n };
-}
-function addFiles(files) {
-  [...files].filter(f => f.type.startsWith('audio/') || /\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(f.name)).forEach(f => {
-    H.tracks.push({ url: URL.createObjectURL(f), fname: f.name, ...parseName(f.name) });
-  });
-  renderSetup();
-}
-
 function renderSetup() {
-  const n = H.tracks.length, s = H.s;
+  const s = H.s, redir = esc(SP.redirect());
   const opt = (k, list) => list.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? 'selected' : ''}>${l}</option>`).join('');
+  let main = '';
+  if (!SP.clientId) {
+    main = `<section class="card"><h2>🎧 Connecter Spotify<small>compte Premium · une seule fois</small></h2>
+      <p class="hint">1. Crée une app sur <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> en cochant <b>Web API</b> et <b>Web Playback SDK</b>.<br>
+      2. Dans ses réglages, ajoute cette Redirect URI à l’identique : <code>${redir}</code><br>3. Colle son Client ID ici :</p>
+      <div class="row nowrap"><input id="spcid" placeholder="Client ID"><button class="btn-main" id="spsave">Enregistrer</button></div></section>`;
+  } else if (!SP.tok) {
+    main = `<section class="card"><h2>🎧 Spotify</h2><div class="row" style="margin-top:14px"><button class="btn-green big" id="splogin">Se connecter à Spotify</button><button id="spreset">Changer de Client ID</button></div>
+      <p class="hint">Redirect URI déclarée dans ton app : <code>${redir}</code></p></section>`;
+  } else {
+    H.blPls = (SP.playlists || []).filter(pl => normName(pl.name).includes('blindtest'));
+    const status = `Connecté${SP.me ? ' : <b>' + esc(SP.me.display_name || SP.me.id) + '</b>' : ''} · lecteur ${SP.deviceId ? '<b style="color:var(--green)">prêt</b>' : '<span class="mute">en préparation…</span>'}`;
+    const cov = (pl, i) => {
+      const sel = H.selPl && H.selPl.id === pl.id;
+      const img = pl.images && pl.images[0] ? `<img src="${esc(pl.images[0].url)}" alt="">` : '<div class="ph">🎵</div>';
+      const total = ((pl.items || pl.tracks || {}).total);
+      const cc = sel ? (H.poolLoading ? 'Préparation…' : H.pool.length ? `✓ ${Math.min(s.count, H.pool.length)} titres tirés au sort` : 'Indisponible') : (total != null ? total + ' titres' : '');
+      return `<button class="cov ${sel ? 'sel' : ''}" data-pl="${i}">${img}<span class="cn">${esc(pl.name)}</span><span class="cc">${cc}</span></button>`;
+    };
+    main = `<div class="row between conn"><span>${status}</span><div class="row"><button id="sprefresh">↻ Actualiser</button><button id="splogout">Déconnexion</button></div></div>
+      ${!SP.playlists ? (SP.err ? '' : '<p class="hint">Chargement de tes playlists…</p>')
+        : H.blPls.length ? `<h2>Choisis ta playlist</h2><div class="covers">${H.blPls.map(cov).join('')}</div>`
+        : '<section class="card empty">Aucune de tes playlists ne contient « blindtest » dans son nom.<br>Crée-en une sur Spotify (ex. « Blindtest 80’s »), puis clique sur Actualiser.</section>'}`;
+  }
+  const ready = H.pool.length && SP.deviceId && !H.poolLoading;
   app.innerHTML = `<div class="wrap">
     <header class="head"><div class="logo">Blindtest<span>Live</span></div>
-      <p class="mute">Charge tes MP3, ouvre la salle : les joueurs buzzent depuis leur téléphone et répondent au micro.</p></header>
-    <label class="drop" id="drop"><input type="file" id="files" accept="audio/*,.mp3" multiple hidden>
-      <b>🎵 Glisse tes MP3 ici</b><span>ou clique pour les choisir · nom conseillé : « Artiste - Titre.mp3 »</span></label>
-    ${spotifyCard()}
-    <section class="card">
-      <div class="row between"><h2>Playlist<small>${n} titre${n > 1 ? 's' : ''}</small></h2>
-        <div class="row"><button id="shuffle" ${n < 2 ? 'disabled' : ''}>🔀 Mélanger</button><button id="clear" ${n ? '' : 'disabled'}>Vider</button></div></div>
-      <p class="hint">Plusieurs réponses acceptées ? Sépare-les par « / » avec des espaces (ex. <i>Papaoutai / Papa où t'es</i>). Champ vide = non compté.</p>
-      <div id="list">${n ? H.tracks.map((t, i) => `
-        <div class="trk" data-i="${i}">
-          <span class="num">${i + 1}</span>
-          <button data-a="prev" title="Écouter">${H.previewIdx === i && previewPlaying() ? '⏸' : '▶'}</button>
-          <input data-f="artist" value="${esc(t.artist)}" placeholder="Artiste">
-          <input data-f="title" value="${esc(t.title)}" placeholder="Titre">
-          <button data-a="del" title="Retirer">✕</button>
-          <span></span><span></span><div class="fname">${esc(t.fname)}</div>
-        </div>`).join('') : '<div class="empty">Aucun morceau pour l’instant.</div>'}</div>
-    </section>
-    <section class="card"><h2>Réglages</h2>
+      <p class="mute">Choisis une playlist : ${s.count} morceaux sont tirés au sort, les joueurs buzzent depuis leur téléphone et répondent au micro.</p></header>
+    ${SP.err ? `<p style="color:var(--red)">${esc(SP.err)}</p>` : ''}
+    ${main}
+    <details class="card"><summary>⚙️ Réglages</summary>
       <div class="grid">
+        <label>Nombre de morceaux<select data-s="count">${opt('count', [[10,'10'],[15,'15'],[20,'20'],[25,'25'],[30,'30'],[40,'40']])}</select></label>
         <label>Durée d’un extrait<select data-s="extract">${opt('extract', [[15,'15 s'],[20,'20 s'],[30,'30 s'],[45,'45 s'],[60,'60 s']])}</select></label>
+        <label>Affichage de la réponse<select data-s="revealTime">${opt('revealTime', [[5,'5 s'],[10,'10 s'],[15,'15 s'],[20,'20 s']])}</select></label>
         <label>Départ de l’extrait<select data-s="startMode">${opt('startMode', [['random','Aléatoire dans le morceau'],['zero','Début du morceau']])}</select></label>
         <label>Points max (buzz immédiat)<select data-s="ptsMax">${opt('ptsMax', [[500,'500'],[1000,'1000'],[2000,'2000']])}</select></label>
         <label>Points en fin d’extrait<select data-s="ptsMinPct">${opt('ptsMinPct', [[0.1,'10 % du max'],[0.3,'30 % du max'],[0.5,'50 % du max']])}</select></label>
@@ -526,39 +503,24 @@ function renderSetup() {
         <label>Tolérance orthographe<select data-s="tol">${opt('tol', [[0.85,'Stricte'],[0.75,'Normale'],[0.62,'Souple']])}</select></label>
         <label>Langue du micro<select data-s="lang">${opt('lang', [['fr-FR','Français'],['en-US','Anglais']])}</select></label>
       </div>
-    </section>
-    <div class="footer-cta"><button class="btn-main big" id="open" ${n ? '' : 'disabled'}>${H.peer && H.peer.open ? 'Retour à la salle →' : 'Ouvrir la salle →'}</button></div>
+    </details>
+    <div class="footer-cta"><button class="btn-main big" id="open" ${ready ? '' : 'disabled'}>${H.peer && H.peer.open ? 'Retour à la salle →' : 'Lancer le blindtest →'}</button></div>
   </div>`;
 
-  bindSpotify();
-  const drop = $('#drop');
-  $('#files').onchange = e => addFiles(e.target.files);
-  drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
-  drop.ondragleave = () => drop.classList.remove('over');
-  drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); };
-  $('#shuffle').onclick = () => { stopPreview(); for (let i = H.tracks.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [H.tracks[i], H.tracks[j]] = [H.tracks[j], H.tracks[i]]; } renderSetup(); };
-  $('#clear').onclick = () => { if (confirm('Vider la playlist ?')) { stopPreview(); H.tracks = []; renderSetup(); } };
-  $('#list').oninput = e => { const f = e.target.dataset.f; if (!f) return; H.tracks[+e.target.closest('.trk').dataset.i][f] = e.target.value; };
-  $('#list').onclick = e => {
-    const b = e.target.closest('button'); if (!b) return;
-    const i = +b.closest('.trk').dataset.i;
-    if (b.dataset.a === 'del') { if (H.previewIdx === i) stopPreview(); if (H.tracks[i].url) URL.revokeObjectURL(H.tracks[i].url); H.tracks.splice(i, 1); renderSetup(); }
-    if (b.dataset.a === 'prev') {
-      const t = H.tracks[i];
-      if (H.previewIdx === i && previewPlaying()) stopPreview();
-      else if (t.src === 'spotify') {
-        if (!SP.deviceId) { alert('Le lecteur Spotify n’est pas encore prêt, réessaie dans quelques secondes.'); return; }
-        audio.pause(); H.previewIdx = i; spActivate();
-        spPlay(t.uri, Math.min(30000, t.durationMs / 3)).catch(e => { alert('Spotify : ' + e.message); stopPreview(); renderSetup(); });
-      } else { if (SP.player) spPause(); H.previewIdx = i; audio.src = t.url; audio.play().catch(() => {}); }
-      renderSetup();
-    }
-  };
-  app.querySelectorAll('[data-s]').forEach(el => el.onchange = () => { const v = el.value; H.s[el.dataset.s] = isNaN(+v) ? v : +v; });
-  $('#open').onclick = () => { stopPreview(); openRoom(); };
+  const q = id => $('#' + id);
+  if (q('spsave')) q('spsave').onclick = () => { const v = q('spcid').value.trim(); if (!v) return; SP.clientId = v; lsSet('sp_client', v); SP.err = ''; renderSetup(); };
+  if (q('splogin')) q('splogin').onclick = () => spLogin();
+  if (q('spreset')) q('spreset').onclick = () => { SP.clientId = ''; lsSet('sp_client', ''); SP.err = ''; renderSetup(); };
+  if (q('splogout')) q('splogout').onclick = () => { spLogout(); H.pool = []; H.selPl = null; SP.err = ''; renderSetup(); };
+  if (q('sprefresh')) q('sprefresh').onclick = () => { SP.playlists = null; SP.err = ''; renderSetup(); };
+  app.querySelectorAll('.cov').forEach(b => b.onclick = () => { const pl = H.blPls[+b.dataset.pl]; if (pl && !(H.selPl && H.selPl.id === pl.id && H.pool.length)) spLoadPool(pl); });
+  app.querySelectorAll('[data-s]').forEach(el => el.onchange = () => {
+    const v = el.value; H.s[el.dataset.s] = isNaN(+v) ? v : +v;
+    if (el.dataset.s === 'count') { const d = app.querySelector('details'); renderSetup(); const d2 = app.querySelector('details'); if (d && d.open && d2) d2.open = true; }
+  });
+  q('open').onclick = () => { spActivate(); openRoom(); };
+  if (SP.tok && !SP.playlists && !SP.plLoading && !SP.err) spLoadPlaylists();
 }
-function previewPlaying() { const t = H.tracks[H.previewIdx]; return !!t && (t.src === 'spotify' ? !SP.st.paused : !audio.paused); }
-function stopPreview() { audio.pause(); if (SP.player && !SP.st.paused) spPause(); H.previewIdx = -1; }
 
 function genCode() { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(''); }
 function makeQR(text, size = 360) {
@@ -571,7 +533,7 @@ function makeQR(text, size = 360) {
 }
 
 function openRoom() {
-  if (H.tracks.some(t => t.src === 'spotify') && !SP.deviceId) { alert('Le lecteur Spotify n’est pas prêt. Vérifie la connexion Spotify, puis réessaie.'); return; }
+  if (!H.pool.length || !SP.deviceId) { alert('Choisis une playlist et attends que le lecteur Spotify soit prêt.'); return; }
   if (H.peer && H.peer.open && !H.peer.destroyed) { H.phase = 'lobby'; return render(); }
   if (typeof Peer === 'undefined') { alert('La librairie de connexion (PeerJS) n’a pas pu se charger. Vérifie la connexion internet.'); return; }
   H.code = genCode();
@@ -630,7 +592,7 @@ function snapshot(p) {
     buzzerName: bz ? bz.name : null, isMe: H.buzzer === p.pid, locked: H.locked.has(p.pid),
     found: { artist: !!H.found.artist, title: !!H.found.title, hasArtist: !!(tr && tr.artist.trim()), hasTitle: !!(tr && tr.title.trim()) },
     judging: !!H.suggestion,
-    reveal: H.phase === 'reveal' && tr ? { artist: firstVariant(tr.artist), title: firstVariant(tr.title) } : null,
+    reveal: H.phase === 'reveal' && tr ? { artist: tr.artist.split(VSEP).join(', '), title: firstVariant(tr.title), cover: tr.cover || '' } : null,
     podium: H.phase === 'end' ? rk.slice(0, 3).map(x => ({ name: x.name, score: x.score })) : null
   };
 }
@@ -643,6 +605,7 @@ function startGame() {
   sfx('join');
   spActivate();
   H.players.forEach(p => p.score = 0);
+  H.tracks = shuffle(H.pool).slice(0, H.s.count);
   loadTrack(0);
 }
 function loadTrack(i) {
@@ -656,27 +619,12 @@ function loadTrack(i) {
     const lo = dur * 0.15, hi = Math.min(dur * 0.6, dur - H.s.extract - 2);
     return hi > lo ? lo + Math.random() * (hi - lo) : 0;
   };
-  audio.pause();
   H.phase = 'playing';
-  if (tr.src === 'spotify') {
-    E.cur = 'spotify';
-    const st = pickStart((tr.durationMs || 0) / 1000);
-    H.startAt = st;
-    spPlay(tr.uri, st * 1000)
-      .then(() => { H.loaded = true; if (H.phase !== 'playing') spPause(); })
-      .catch(e => flash('bad', '🎧', 'Spotify : ' + e.message, 2500));
-  } else {
-    if (SP.player && !SP.st.paused) spPause();
-    E.cur = 'file';
-    audio.onloadedmetadata = () => {
-      const st = pickStart(audio.duration || 0);
-      H.startAt = st;
-      audio.currentTime = st;
-      H.loaded = true;
-      if (H.phase === 'playing') audio.play().catch(() => {});
-    };
-    audio.src = tr.url;
-  }
+  const st = pickStart((tr.durationMs || 0) / 1000);
+  H.startAt = st;
+  spPlay(tr.uri, st * 1000)
+    .then(() => { H.loaded = true; if (H.phase !== 'playing') spPause(); })
+    .catch(e => { flash('bad', '🎧', 'Spotify : ' + e.message, 2500); H.loaded = true; });
   refresh();
 }
 function onBuzz(pid) {
@@ -736,6 +684,7 @@ function applyVerdict(res) {
 }
 function revealTrack() {
   H.phase = 'reveal'; H.buzzer = null; H.suggestion = null;
+  H.hold = false; H.revealUntil = performance.now() + H.s.revealTime * 1000;
   if (E.paused()) E.play();
   refresh();
 }
@@ -760,6 +709,12 @@ function tick() {
     if (cd) cd.textContent = Math.ceil(Math.max(0, (H.deadline - now) / 1000)) + ' s';
     if (!H.suggestion && H.buzzer && now > H.deadline) applyVerdict({ artist: false, title: false });
   }
+  if (H.phase === 'reveal') {
+    const last = H.idx + 1 >= H.tracks.length;
+    const nc = $('#nextcd');
+    if (nc) nc.textContent = H.hold ? 'Enchaînement en pause' : (last ? 'Podium dans ' : 'Morceau suivant dans ') + Math.ceil(Math.max(0, (H.revealUntil - now) / 1000)) + ' s';
+    if (!H.hold && now >= H.revealUntil) nextTrack();
+  }
 }
 
 /* ---------- Rendus hôte ---------- */
@@ -782,7 +737,7 @@ function renderLobby() {
     <div class="lobby-right card">
       <h2>Joueurs<small>${list.filter(p => p.online).length} connecté(s)</small></h2>
       <div class="chips">${list.length ? list.map(p => `<div class="chip ${p.online ? '' : 'off'}">${esc(p.name)}</div>`).join('') : '<p class="mute">En attente des joueurs…</p>'}</div>
-      <p class="mute">${H.tracks.length} extraits · ${H.s.extract} s chacun · ${H.s.ptsMax} → ${Math.round(H.s.ptsMax * H.s.ptsMinPct)} pts · validation ${H.s.judge === 'auto' ? 'automatique' : 'manuelle'}</p>
+      <p class="mute">${esc(H.selPl ? H.selPl.name : '')} · ${Math.min(H.s.count, H.pool.length)} morceaux au hasard · ${H.s.extract} s chacun · ${H.s.ptsMax} → ${Math.round(H.s.ptsMax * H.s.ptsMinPct)} pts · validation ${H.s.judge === 'auto' ? 'automatique' : 'manuelle'}</p>
       <div class="row"><button id="back">← Playlist</button><button class="btn-main big" id="start" ${list.length ? '' : 'disabled'}>Lancer la partie ▶</button></div>
     </div>
   </div>`;
@@ -811,10 +766,10 @@ function renderGame() {
         : `<div class="stake">${ptsAt(H.buzzT)}<small>pts en jeu</small></div><div class="cd" id="cd"></div>`}`;
   } else if (H.phase === 'reveal') {
     const by = [H.foundBy.title && `Titre : ${esc(H.foundBy.title)}`, H.foundBy.artist && `Artiste : ${esc(H.foundBy.artist)}`].filter(Boolean).join(' · ');
-    hero = `<div class="reveal"><div class="lab">C’était</div>
+    hero = `<div class="reveal">${tr.cover ? `<img class="r-cover" src="${esc(tr.cover)}" alt="">` : ''}<div class="r-txt"><div class="lab">C’était</div>
       <div class="r-title">${esc(firstVariant(tr.title) || firstVariant(tr.artist))}</div>
-      ${tr.artist.trim() && tr.title.trim() ? `<div class="r-artist">${esc(firstVariant(tr.artist))}</div>` : ''}
-      <div class="by">${by || 'Personne n’a trouvé 🙈'}</div></div>`;
+      ${tr.artist.trim() && tr.title.trim() ? `<div class="r-artist">${esc(tr.artist.split(VSEP).join(', '))}</div>` : ''}
+      <div class="by">${by || 'Personne n’a trouvé 🙈'}</div><div class="nextcd" id="nextcd"></div></div></div>`;
   }
   const rk = ranked();
   let ctrl = '';
@@ -829,7 +784,8 @@ function renderGame() {
       ${!H.found.artist && !H.found.title ? `<button class="btn-green ${sg.title && sg.artist ? 'hl' : ''}" data-c="okB">✓ Les deux</button>` : ''}
       <button class="btn-red ${H.suggestion && !sg.artist && !sg.title ? 'hl' : ''}" data-c="ko">✗ Faux</button>`;
   }
-  if (H.phase === 'reveal') ctrl = `<span class="tag">Régie</span><button class="btn-main" data-c="next">${H.idx + 1 < H.tracks.length ? 'Extrait suivant ▶' : 'Voir le podium 🏆'}</button>`;
+  if (H.phase === 'reveal') ctrl = `<span class="tag">Régie</span><button class="btn-main" data-c="next">${H.idx + 1 < H.tracks.length ? 'Suivant maintenant ▶' : 'Podium maintenant 🏆'}</button>
+      <button data-c="hold">${H.hold ? '▶ Reprendre l’enchaînement' : '⏸ Bloquer ici'}</button>`;
 
   app.innerHTML = `<div class="stage">
     <main class="center">
@@ -850,6 +806,7 @@ function renderGame() {
     if (c === 'pause') { if (E.paused()) E.play(); else E.pause(); renderGame(); }
     if (c === 'reveal') revealTrack();
     if (c === 'next') nextTrack();
+    if (c === 'hold') { H.hold = !H.hold; if (!H.hold) H.revealUntil = performance.now() + 3000; renderGame(); }
     if (c === 'okA') applyVerdict({ artist: true, title: false });
     if (c === 'okT') applyVerdict({ artist: false, title: true });
     if (c === 'okB') applyVerdict({ artist: true, title: true });
@@ -865,7 +822,7 @@ function renderEnd() {
     <div class="hero-big">🏆 Podium</div>
     <div class="podium">${pod(rk[1], 2)}${pod(rk[0], 1)}${pod(rk[2], 3)}</div>
     ${rk.length > 3 ? `<p class="mute">${rk.slice(3).map((p, i) => `${i + 4}. ${esc(p.name)} (${p.score})`).join(' · ')}</p>` : ''}
-    <div class="row"><button id="again" class="btn-main big">Rejouer (scores à zéro)</button><button id="edit">Modifier la playlist</button></div>
+    <div class="row"><button id="again" class="btn-main big">Rejouer (nouveau tirage)</button><button id="edit">Changer de playlist</button></div>
   </div>`;
   $('#again').onclick = () => { H.players.forEach(p => p.score = 0); H.idx = -1; H.phase = 'lobby'; refresh(); };
   $('#edit').onclick = () => { H.players.forEach(p => p.score = 0); H.idx = -1; H.phase = 'lobby'; broadcast(); H.phase = 'setup'; renderSetup(); };
@@ -1048,7 +1005,7 @@ function renderPlayer() {
     mid = `<p>Extrait ${s.trackNo} / ${s.trackCount}</p>${foundChips}
       <button class="buzz grey" disabled>🔔<br>${esc(s.buzzerName || '')}<br><small style="font-size:16px">répond…</small></button>`;
   } else if (s.phase === 'reveal' && s.reveal) {
-    mid = `<p>C’était</p><h1 style="font-size:36px">${esc(s.reveal.title || s.reveal.artist)}</h1>
+    mid = `${s.reveal.cover ? `<img class="p-cover" src="${esc(s.reveal.cover)}" alt="">` : ''}<p>C’était</p><h1 style="font-size:32px">${esc(s.reveal.title || s.reveal.artist)}</h1>
       ${s.reveal.title && s.reveal.artist ? `<p style="color:var(--yellow);font-size:22px">${esc(s.reveal.artist)}</p>` : ''}
       <p>Prochain extrait dans un instant…</p>`;
   } else if (s.phase === 'end') {
